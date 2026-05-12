@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Vibration Lab Pro | RK4 Vector MDOF FRF</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000000;
+            margin: 0;
+            padding: 20px;
+            color: #f0f3f8;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff, #9ab3f5);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 24px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #252a3a;
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            padding: 10px 22px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            border-radius: 48px;
+            cursor: pointer;
+            color: #b9c3da;
+            transition: all 0.2s ease;
+        }
+        .tab-btn:hover { background: rgba(59,130,246,0.15); color: white; transform: translateY(-1px); }
+        .tab-btn.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59,130,246,0.35); }
+        .tab-content { display: none; animation: fade 0.2s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .card { background: #11131f; border-radius: 28px; padding: 20px 24px; margin-bottom: 24px; border: 1px solid #2a2e42; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+        .card h3 { color: #eef2ff; margin-top: 0; margin-bottom: 18px; font-weight: 500; font-size: 1.3rem; }
+        .grid-2 { display: flex; flex-wrap: wrap; gap: 24px; }
+        .grid-2 > * { flex: 1; min-width: 260px; }
+        .slider-group { margin-bottom: 20px; }
+        .slider-group label { display: flex; justify-content: space-between; font-weight: 500; margin-bottom: 8px; font-size: 0.85rem; color: #cbd5e6; }
+        input[type="range"] { width: 100%; accent-color: #3b82f6; background: #2a2e42; height: 4px; border-radius: 4px; }
+        button { background: #2d374b; border: none; color: white; padding: 8px 20px; border-radius: 40px; font-weight: 500; cursor: pointer; margin-top: 8px; transition: 0.15s; font-size: 0.85rem; }
+        button:hover { background: #3b82f6; transform: scale(0.98); }
+        canvas { background: #0b0d16; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 1px solid #2a2e42; width: 100%; height: auto; }
+        footer { text-align: center; margin-top: 30px; font-size: 0.7rem; color: #6c7a91; }
+        .mode-toggle { display: flex; gap: 16px; margin-bottom: 20px; background: #0f111c; padding: 8px 20px; border-radius: 48px; width: fit-content; border: 1px solid #2a2e42; }
+        .mode-toggle label { display: flex; gap: 8px; align-items: center; font-weight: 500; color: #ccd6f0; }
+        .mode-toggle input { accent-color: #3b82f6; }
+        #resonanceWarn { background: #2a1e1a; color: #ffb347; border-left: 4px solid #ff9800; border-radius: 16px; padding: 8px; margin-top: 12px; display: none; }
+        .result-box { background: #0a0c14; padding: 12px 16px; border-radius: 20px; font-family: monospace; border: 1px solid #2a2e42; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #11131f; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+        .help-section { background: #0a0c14; border-radius: 20px; padding: 14px 20px; margin-bottom: 16px; border-left: 3px solid #3b82f6; }
+        .help-section h4 { margin: 0 0 8px 0; color: #9ab3f5; }
+        .help-section p, .help-section ul { margin: 6px 0; font-size: 0.9rem; color: #d1d9f0; }
+        .floating-m { position: fixed; bottom: 28px; right: 28px; width: 56px; height: 56px; background: #1e293b; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,0.4), 0 0 0 2px rgba(59,130,246,0.3); transition: all 0.2s ease; z-index: 9999; backdrop-filter: blur(2px); border: 1px solid #3b82f6; }
+        .floating-m span { font-size: 1.9rem; font-weight: 700; color: white; }
+        .m-tooltip { position: fixed; bottom: 95px; right: 28px; background: #0f172ad9; backdrop-filter: blur(12px); border: 1px solid #3b82f6; border-radius: 28px; padding: 8px 18px; font-size: 0.85rem; font-weight: 500; color: #e2e8f0; white-space: nowrap; pointer-events: none; opacity: 0; transform: translateY(10px); transition: opacity 0.2s, transform 0.2s; z-index: 9998; }
+        .m-tooltip.show { opacity: 1; transform: translateY(0); }
+        #splashScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #0a0f1a, #000000);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            flex-direction: column;
+            transition: opacity 0.7s cubic-bezier(0.2, 0.9, 0.4, 1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .splash-logo { text-align: center; animation: fadeInUp 0.9s ease-out; }
+        .logo-circle { width: 130px; height: 130px; margin: 0 auto 28px auto; border: 3px solid rgba(59,130,246,0.7); border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.08); box-shadow: 0 0 35px rgba(59,130,246,0.4); }
+        .logo-circle span { font-size: 4.2rem; font-weight: 700; color: white; text-shadow: 0 0 12px #3b82f6; }
+        .splash-name { font-size: 1.8rem; font-weight: 500; background: linear-gradient(135deg, #ffffff, #9ab3f5); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .splash-title { font-size: 1rem; color: #94a3b8; border-top: 1px solid #2a2e42; padding-top: 12px; display: inline-block; }
+        @keyframes fadeInUp { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        body.splash-active { overflow: hidden; }
+        @media (max-width: 600px) { .floating-m { width: 48px; height: 48px; } .tab-btn { padding: 6px 14px; } }
+    </style>
+</head>
+<body>
+
+<div id="splashScreen">
+    <div class="splash-logo"><div class="logo-circle"><span>M</span></div><div class="splash-name">Mohammad Al-Bohasi</div><div class="splash-title">Mechatronics engineer</div></div>
+</div>
+<div class="floating-m" id="floatingMButton"><span>M</span></div>
+<div class="m-tooltip" id="mTooltip">Powered by Mohammad Albohasi</div>
+
+<div class="container">
+    <h1>Vibration Lab Pro</h1>
+    <div class="mode-toggle" id="modeToggle">
+        <label><input type="radio" name="dofMode" value="1" checked> 1-DOF</label>
+        <label><input type="radio" name="dofMode" value="2"> 2-DOF</label>
+    </div>
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="tab1">Time Domain</button>
+        <button class="tab-btn" data-tab="tab2">FRF Sweep</button>
+        <button class="tab-btn" data-tab="tab3">Decay & zeta</button>
+        <button class="tab-btn" data-tab="tab4">Rayleigh</button>
+        <button class="tab-btn" data-tab="tab5">Phase/Export</button>
+        <button class="tab-btn" data-tab="tab6">Help</button>
+    </div>
+
+    <div id="tab1" class="tab-content active">
+        <div class="card">
+            <h3>Real-time simulation (Vector RK4, Karnopp friction)</h3>
+            <div class="grid-2">
+                <div id="params1DOF">
+                    <div class="slider-group"><label>m1 (kg) <span id="m1Val">1.2</span></label><input type="range" id="m1" min="0.5" max="5" step="0.05" value="1.2"></div>
+                    <div class="slider-group"><label>k1 (N/m) <span id="k1Val">120</span></label><input type="range" id="k1" min="30" max="300" step="2" value="120"></div>
+                    <div class="slider-group"><label>c1 (N·s/m) <span id="c1Val">3.5</span></label><input type="range" id="c1" min="0" max="20" step="0.5" value="3.5"></div>
+                    <div class="slider-group"><label>eta1 <span id="eta1Val">0.12</span></label><input type="range" id="eta1" min="0" max="0.5" step="0.005" value="0.12"></div>
+                    <div class="slider-group"><label>mu1 <span id="mu1Val">0.0</span></label><input type="range" id="mu1" min="0" max="0.5" step="0.01" value="0"></div>
+                </div>
+                <div id="params2DOF" style="display:none;">
+                    <div class="slider-group"><label>m1 (kg) <span id="m1bVal">1.2</span></label><input type="range" id="m1b" min="0.5" max="5" step="0.05" value="1.2"></div>
+                    <div class="slider-group"><label>m2 (kg) <span id="m2bVal">1.0</span></label><input type="range" id="m2b" min="0.5" max="5" step="0.05" value="1.0"></div>
+                    <div class="slider-group"><label>k1 (N/m) <span id="k1bVal">120</span></label><input type="range" id="k1b" min="30" max="300" step="2" value="120"></div>
+                    <div class="slider-group"><label>k2 (N/m) <span id="k2bVal">80</span></label><input type="range" id="k2b" min="10" max="200" step="2" value="80"></div>
+                    <div class="slider-group"><label>c1 (N·s/m) <span id="c1bVal">3.5</span></label><input type="range" id="c1b" min="0" max="20" step="0.5" value="3.5"></div>
+                    <div class="slider-group"><label>c2 (N·s/m) <span id="c2bVal">2.0</span></label><input type="range" id="c2b" min="0" max="15" step="0.5" value="2.0"></div>
+                    <div class="slider-group"><label>mu1,mu2 <span id="mu2Val">0.0</span></label><input type="range" id="mu2" min="0" max="0.5" step="0.01" value="0"></div>
+                </div>
+                <div>
+                    <div class="slider-group"><label>F0 (N) <span id="f0Val">0</span></label><input type="range" id="F0" min="0" max="20" step="0.5" value="0"></div>
+                    <div class="slider-group"><label>omega_f (rad/s) <span id="wfVal">8.0</span></label><input type="range" id="wf" min="1" max="30" step="0.2" value="8"></div>
+                    <button id="pluckBtn">Pluck</button><button id="resetBtn">Reset</button>
+                    <div id="resonanceWarn"></div>
+                </div>
+            </div>
+            <canvas id="timeCanvas" width="800" height="200"></canvas>
+            <canvas id="animCanvas" width="600" height="140" style="margin-top:12px;"></canvas>
+        </div>
+    </div>
+
+    <div id="tab2" class="tab-content"><div class="card"><h3>Frequency Response Function (Eigen-aware)</h3><button id="runSweepBtn">Run Sweep</button><div class="grid-2"><div><canvas id="frfCanvas" width="400" height="250"></canvas></div><div><canvas id="phaseCanvasFRF" width="400" height="250"></canvas></div></div><div id="sweepStatus" style="margin-top:12px; color:#9ab3f5;"></div></div></div>
+    <div id="tab3" class="tab-content"><div class="card"><h3>Free decay & logarithmic decrement</h3><button id="decayTestBtn">Run decay test</button><div class="grid-2"><div><canvas id="decayCanvas" width="400" height="200"></canvas></div><div><div id="decayResult" style="background:#0a0c14; border-radius:20px; padding:16px;"></div></div></div></div></div>
+    <div id="tab4" class="tab-content"><div class="card"><h3>Rayleigh Energy Method</h3><div class="grid-2"><div><select id="rayType" style="background:#1e2235; color:white; border:1px solid #3b82f6; border-radius:20px; padding:8px;"><option value="springMass">Spring-Mass</option><option value="cantilever">Cantilever Beam</option><option value="simplySupported">Simply Supported Beam</option></select><div id="raySpringDiv"><div class="slider-group"><label>Mass (kg) <span id="rayM">1.0</span></label><input type="range" id="rayMass" min="0.2" max="10" step="0.1" value="1.0"></div><div class="slider-group"><label>Stiffness (N/m) <span id="rayK">100</span></label><input type="range" id="rayStiff" min="10" max="500" step="5" value="100"></div></div><div id="rayBeamDiv" style="display:none;"><div class="slider-group"><label>Length L (m) <span id="rayL">1.0</span></label><input type="range" id="rayLen" min="0.5" max="5" step="0.05" value="1.0"></div><div class="slider-group"><label>E (GPa) <span id="rayE">200</span></label><input type="range" id="rayEmod" min="10" max="300" step="5" value="200"></div><div class="slider-group"><label>I (1e-6 m4) <span id="rayI">1.0</span></label><input type="range" id="rayIinert" min="0.1" max="10" step="0.1" value="1.0"></div><div class="slider-group"><label>μ (kg/m) <span id="rayMu">2.0</span></label><input type="range" id="rayMuVal" min="0.5" max="10" step="0.1" value="2.0"></div></div><button id="solveRayleighBtn">Compute</button></div><div><div class="result-box" id="rayleighResult">ωₙ = — rad/s<br>fₙ = — Hz</div><canvas id="modeShapeCanvas" width="300" height="120"></canvas></div></div></div></div>
+    <div id="tab5" class="tab-content"><div class="card"><h3>Phase portrait & full CSV export</h3><div class="grid-2"><div><canvas id="phaseCanvas" width="400" height="280"></canvas></div><div><button id="exportCSV">Export CSV (all states)</button><div id="phaseStats" style="margin-top:16px; background:#0a0c14; padding:12px; border-radius:16px;"></div></div></div></div></div>
+    <div id="tab6" class="tab-content"><div class="card"><h3>How to use (Pro version)</h3><div class="help-section"><h4>Time Domain</h4><p>Vector RK4 integration · Dynamic sticking threshold · Auto-scaling Y axis · 2-DOF eigenvalue resonance detection</p></div><div class="help-section"><h4>FRF Sweep</h4><p>Automatic eigenfrequency detection (for 2-DOF both modes) + resonance warnings.</p></div><div class="help-section"><h4>Decay & Log Decrement</h4><p>Pluck → measure peaks → accurate damping ratio even with friction.</p></div><div class="help-section"><h4>Export CSV</h4><p>Full state: t, x1, v1, x2, v2 (2-DOF) – ready for MATLAB.</p></div><div class="help-section"><h4>Performance</h4><p>Circular buffer (O(1) history), pre-allocated arrays, no GC spikes.</p></div></div></div>
+    <footer>RK4 vector integrator · Coupled MDOF · Karnopp dynamic threshold · Circular buffer · Auto-scale · Full CSV export</footer>
+</div>
+
+<script>
+    class CircularBuffer {
+        constructor(maxLen) { this.max = maxLen; this.data = new Array(maxLen); this.head = 0; this.len = 0; }
+        push(val) { this.data[this.head] = val; this.head = (this.head + 1) % this.max; if (this.len < this.max) this.len++; }
+        forEach(callback) {
+            if (this.len === 0) return;
+            let start = (this.head - this.len + this.max) % this.max;
+            for (let i = 0; i < this.len; i++) {
+                let idx = (start + i) % this.max;
+                callback(this.data[idx], i);
+            }
+        }
+        getArray() { let arr = []; this.forEach(v => arr.push(v)); return arr; }
+        clear() { this.head = 0; this.len = 0; }
+    }
+
+    class VectorSim {
+        constructor() {
+            this.dof = 1;
+            this.state = [0.15, 0, 0, 0];
+            this.t = 0;
+            this.m = [1.2, 1.0];
+            this.k = [120, 80];
+            this.c = [3.5, 2.0];
+            this.eta = [0.12, 0.12];
+            this.mu = [0.0, 0.0];
+            this.F0 = 0;
+            this.omega_f = 8.0;
+            this.k1 = [0,0,0,0]; this.k2 = [0,0,0,0]; this.k3 = [0,0,0,0]; this.k4 = [0,0,0,0];
+            this.tmp = [0,0,0,0];
+            this.histT = new CircularBuffer(1800);
+            this.histX1 = new CircularBuffer(1800);
+            this.histV1 = new CircularBuffer(1800);
+            this.histX2 = new CircularBuffer(1800);
+            this.histV2 = new CircularBuffer(1800);
+            this.updateMatrices();
+        }
+        updateMatrices() {
+            if (this.dof === 1) return;
+            let k1 = this.k[0], k2 = this.k[1];
+            let c1 = this.c[0], c2 = this.c[1];
+            this.Kmat = [[k1 + k2, -k2], [-k2, k2]];
+            this.Cmat = [[c1 + c2, -c2], [-c2, c2]];
+            let M = [[this.m[0],0],[0,this.m[1]]];
+            let A = [[this.Kmat[0][0]/M[0][0], this.Kmat[0][1]/M[0][0]],[this.Kmat[1][0]/M[1][1], this.Kmat[1][1]/M[1][1]]];
+            let trace = A[0][0] + A[1][1];
+            let det = A[0][0]*A[1][1] - A[0][1]*A[1][0];
+            if (det > 0 && trace > 0) {
+                let w1 = Math.sqrt((trace - Math.sqrt(trace*trace - 4*det))/2);
+                let w2 = Math.sqrt((trace + Math.sqrt(trace*trace - 4*det))/2);
+                this.eigenFreqs = [w1, w2];
+            } else this.eigenFreqs = [NaN, NaN];
+        }
+        deriv(state, t, out) {
+            let x1 = state[0], v1 = state[1], x2 = state[2], v2 = state[3];
+            if (this.dof === 1) {
+                let wn = Math.sqrt(this.k[0]/this.m[0]);
+                let ch = (this.eta[0] * this.k[0]) / wn;
+                let Fspring = -this.k[0] * x1;
+                let Fvisc = -(this.c[0] + ch) * v1;
+                let Fext = this.F0 * Math.sin(this.omega_f * t);
+                let Ffric = 0;
+                let eps = Math.max(1e-6, 0.00012);
+                let Fmax = this.mu[0] * this.m[0] * 9.81;
+                if (Math.abs(v1) < eps) {
+                    let Fnet = Fspring + Fvisc + Fext;
+                    if (Math.abs(Fnet) <= Fmax) Ffric = -Fnet;
+                    else Ffric = -Fmax * Math.sign(Fnet);
+                } else Ffric = -Fmax * Math.sign(v1);
+                let acc = (Fspring + Fvisc + Ffric + Fext) / this.m[0];
+                out[0] = v1; out[1] = acc; out[2] = 0; out[3] = 0;
+                return;
+            }
+            let wn1 = Math.sqrt(this.k[0]/this.m[0]), wn2 = Math.sqrt(this.k[1]/this.m[1]);
+            let ch1 = (this.eta[0] * this.k[0]) / wn1, ch2 = (this.eta[1] * this.k[1]) / wn2;
+            let Fspring1 = - (this.Kmat[0][0]*x1 + this.Kmat[0][1]*x2);
+            let Fspring2 = - (this.Kmat[1][0]*x1 + this.Kmat[1][1]*x2);
+            let Fvisc1 = - (this.Cmat[0][0] + ch1)*v1 - this.Cmat[0][1]*v2;
+            let Fvisc2 = - this.Cmat[1][0]*v1 - (this.Cmat[1][1] + ch2)*v2;
+            let Fext1 = this.F0 * Math.sin(this.omega_f * t), Fext2 = 0;
+            let eps = Math.max(1e-6, 0.00012);
+            let Ffric1 = 0, Ffric2 = 0;
+            let Fmax1 = this.mu[0] * this.m[0] * 9.81, Fmax2 = this.mu[1] * this.m[1] * 9.81;
+            if (Math.abs(v1) < eps) { let net = Fspring1 + Fvisc1 + Fext1; if (Math.abs(net) <= Fmax1) Ffric1 = -net; else Ffric1 = -Fmax1 * Math.sign(net); } else Ffric1 = -Fmax1 * Math.sign(v1);
+            if (Math.abs(v2) < eps) { let net = Fspring2 + Fvisc2 + Fext2; if (Math.abs(net) <= Fmax2) Ffric2 = -net; else Ffric2 = -Fmax2 * Math.sign(net); } else Ffric2 = -Fmax2 * Math.sign(v2);
+            let a1 = (Fspring1 + Fvisc1 + Ffric1 + Fext1) / this.m[0];
+            let a2 = (Fspring2 + Fvisc2 + Ffric2 + Fext2) / this.m[1];
+            out[0] = v1; out[1] = a1; out[2] = v2; out[3] = a2;
+        }
+        step(dt) {
+            let t = this.t;
+            this.deriv(this.state, t, this.k1);
+            for (let i=0;i<4;i++) this.tmp[i] = this.state[i] + 0.5*dt*this.k1[i];
+            this.deriv(this.tmp, t+0.5*dt, this.k2);
+            for (let i=0;i<4;i++) this.tmp[i] = this.state[i] + 0.5*dt*this.k2[i];
+            this.deriv(this.tmp, t+0.5*dt, this.k3);
+            for (let i=0;i<4;i++) this.tmp[i] = this.state[i] + dt*this.k3[i];
+            this.deriv(this.tmp, t+dt, this.k4);
+            for (let i=0;i<4;i++) this.state[i] += dt/6 * (this.k1[i] + 2*this.k2[i] + 2*this.k3[i] + this.k4[i]);
+            this.t += dt;
+        }
+        recordHistory() {
+            this.histT.push(this.t);
+            this.histX1.push(this.state[0]);
+            this.histV1.push(this.state[1]);
+            this.histX2.push(this.state[2]);
+            this.histV2.push(this.state[3]);
+        }
+        reset() { this.state = [0.15, 0, 0, 0]; this.t = 0; this.clearHistory(); }
+        pluck() { this.state = [0.22, 0, 0, 0]; this.t = 0; this.clearHistory(); }
+        clearHistory() { this.histT.clear(); this.histX1.clear(); this.histV1.clear(); this.histX2.clear(); this.histV2.clear(); }
+        setParams(dof, m, k, c, eta, mu, F0, wf) {
+            this.dof = dof;
+            if (dof===1) { this.m = [m,1]; this.k=[k,0]; this.c=[c,0]; this.eta=[eta,0]; this.mu=[mu,0]; }
+            else { this.m = [m[0],m[1]]; this.k=[k[0],k[1]]; this.c=[c[0],c[1]]; this.eta=[eta[0],eta[1]]; this.mu=[mu,mu]; }
+            this.F0=F0; this.omega_f=wf; this.updateMatrices();
+        }
+        getCurrentAmpScale() { let maxv = 0.3; this.histX1.forEach(val => { if(Math.abs(val) > maxv) maxv = Math.abs(val); }); return Math.min(1.2, maxv*1.2); }
+    }
+
+    let sim = new VectorSim();
+    let lastTimestamp = 0, autoSweeping = false;
+    let timeCanvas, animCanvas, phaseCanvas, decayCanvas, frfCanvas, ctxTime, ctxAnim, ctxPhase, ctxDecay, ctxFRF;
+
+    function updateUIFromSim() {
+        if(sim.dof===1){
+            document.getElementById('m1Val').innerText=sim.m[0].toFixed(2); document.getElementById('k1Val').innerText=sim.k[0];
+            document.getElementById('c1Val').innerText=sim.c[0].toFixed(1); document.getElementById('eta1Val').innerText=sim.eta[0].toFixed(3);
+            document.getElementById('mu1Val').innerText=sim.mu[0].toFixed(2);
+            document.getElementById('m1').value=sim.m[0]; document.getElementById('k1').value=sim.k[0]; document.getElementById('c1').value=sim.c[0];
+            document.getElementById('eta1').value=sim.eta[0]; document.getElementById('mu1').value=sim.mu[0];
+        } else {
+            document.getElementById('m1bVal').innerText=sim.m[0].toFixed(2); document.getElementById('m2bVal').innerText=sim.m[1].toFixed(2);
+            document.getElementById('k1bVal').innerText=sim.k[0]; document.getElementById('k2bVal').innerText=sim.k[1];
+            document.getElementById('c1bVal').innerText=sim.c[0].toFixed(1); document.getElementById('c2bVal').innerText=sim.c[1].toFixed(1);
+            document.getElementById('mu2Val').innerText=sim.mu[0].toFixed(2);
+            document.getElementById('m1b').value=sim.m[0]; document.getElementById('m2b').value=sim.m[1];
+            document.getElementById('k1b').value=sim.k[0]; document.getElementById('k2b').value=sim.k[1];
+            document.getElementById('c1b').value=sim.c[0]; document.getElementById('c2b').value=sim.c[1];
+            document.getElementById('mu2').value=sim.mu[0];
+        }
+        document.getElementById('f0Val').innerText=sim.F0; document.getElementById('wfVal').innerText=sim.omega_f.toFixed(2);
+        document.getElementById('F0').value=sim.F0; document.getElementById('wf').value=sim.omega_f;
+        let warnDiv = document.getElementById('resonanceWarn');
+        if(sim.dof===1){
+            let wn=Math.sqrt(sim.k[0]/sim.m[0]);
+            if(Math.abs(sim.omega_f/wn-1)<0.05 && sim.F0>0.1) warnDiv.innerHTML='RESONANCE (1st mode)'; else warnDiv.innerHTML='';
+        } else if(sim.dof===2 && sim.eigenFreqs){
+            let near1 = Math.abs(sim.omega_f/sim.eigenFreqs[0]-1)<0.05;
+            let near2 = Math.abs(sim.omega_f/sim.eigenFreqs[1]-1)<0.05;
+            if((near1||near2) && sim.F0>0.1) warnDiv.innerHTML=`RESONANCE near w_n1=${sim.eigenFreqs[0].toFixed(2)} / w_n2=${sim.eigenFreqs[1].toFixed(2)} rad/s`;
+            else warnDiv.innerHTML='';
+        }
+    }
+    function readParamsFromUI(){
+        if(sim.dof===1) sim.setParams(1, parseFloat(document.getElementById('m1').value), parseFloat(document.getElementById('k1').value), parseFloat(document.getElementById('c1').value), parseFloat(document.getElementById('eta1').value), parseFloat(document.getElementById('mu1').value), parseFloat(document.getElementById('F0').value), parseFloat(document.getElementById('wf').value));
+        else sim.setParams(2, [parseFloat(document.getElementById('m1b').value), parseFloat(document.getElementById('m2b').value)], [parseFloat(document.getElementById('k1b').value), parseFloat(document.getElementById('k2b').value)], [parseFloat(document.getElementById('c1b').value), parseFloat(document.getElementById('c2b').value)], [0.12,0.12], parseFloat(document.getElementById('mu2').value), parseFloat(document.getElementById('F0').value), parseFloat(document.getElementById('wf').value));
+        updateUIFromSim();
+    }
+
+    function drawTimeDomain() {
+        if(!timeCanvas) return;
+        let w=timeCanvas.width, h=timeCanvas.height;
+        ctxTime.clearRect(0,0,w,h);
+        let tArr = [], x1Arr = [], x2Arr = [];
+        sim.histT.forEach((v,i)=>{ tArr.push(v); });
+        sim.histX1.forEach((v,i)=>{ x1Arr.push(v); });
+        sim.histX2.forEach((v,i)=>{ x2Arr.push(v); });
+        if(tArr.length<2) return;
+        let tMin=tArr[0], tMax=tArr[tArr.length-1];
+        let maxAbs = Math.max(...x1Arr.map(Math.abs), ...x2Arr.map(Math.abs), 0.05);
+        let scaleY = 0.9 / maxAbs;
+        let tx = (t) => (t-tMin)/(tMax-tMin)*w;
+        let ty = (val) => h/2 - val*scaleY*(h/2);
+        ctxTime.beginPath();
+        for(let i=0;i<tArr.length;i++) i===0?ctxTime.moveTo(tx(tArr[i]), ty(x1Arr[i])):ctxTime.lineTo(tx(tArr[i]), ty(x1Arr[i]));
+        ctxTime.strokeStyle='#3b82f6'; ctxTime.lineWidth=1.8; ctxTime.stroke();
+        if(sim.dof===2 && x2Arr.length){
+            ctxTime.beginPath();
+            for(let i=0;i<tArr.length;i++) i===0?ctxTime.moveTo(tx(tArr[i]), ty(x2Arr[i])):ctxTime.lineTo(tx(tArr[i]), ty(x2Arr[i]));
+            ctxTime.strokeStyle='#f97316'; ctxTime.stroke();
+        }
+    }
+    function drawPhase() {
+        if(!phaseCanvas) return;
+        let w=phaseCanvas.width, h=phaseCanvas.height;
+        ctxPhase.clearRect(0,0,w,h);
+        let xArr=[], vArr=[];
+        sim.histX1.forEach(v=>xArr.push(v));
+        sim.histV1.forEach(v=>vArr.push(v));
+        if(xArr.length<2) return;
+        let maxX = Math.max(...xArr.map(Math.abs),0.05);
+        let maxV = Math.max(...vArr.map(Math.abs),0.05);
+        let sx = (xx) => (xx + maxX*1.1)/(2*maxX*1.1)*w;
+        let sy = (vv) => h - (vv + maxV*1.2)/(2*maxV*1.2)*h;
+        ctxPhase.beginPath();
+        for(let i=0;i<xArr.length;i++) i===0?ctxPhase.moveTo(sx(xArr[i]), sy(vArr[i])):ctxPhase.lineTo(sx(xArr[i]), sy(vArr[i]));
+        ctxPhase.strokeStyle='#a78bfa'; ctxPhase.stroke();
+        document.getElementById('phaseStats').innerHTML=`Points: ${sim.histT.len}<br>x1=${sim.state[0].toFixed(3)} v1=${sim.state[1].toFixed(3)}${sim.dof===2?` | x2=${sim.state[2].toFixed(3)}`:''}`;
+    }
+    function drawAnimation(){
+        let aw=animCanvas.width, ah=animCanvas.height;
+        ctxAnim.clearRect(0,0,aw,ah);
+        let anchorX=60, baseY=ah/2;
+        let maxDisp = Math.max(0.2, Math.abs(sim.state[0])*1.2);
+        let pixelShift = (sim.state[0] / maxDisp) * 100;
+        let massX = anchorX+70 + Math.min(120, Math.max(-120, pixelShift));
+        ctxAnim.beginPath(); ctxAnim.moveTo(anchorX,baseY);
+        for(let i=0;i<=12;i++){ let t=i/12, xp=anchorX+(massX-15-anchorX)*t, yOff=(i%2===0)?-6:6; ctxAnim.lineTo(xp,baseY+yOff); }
+        ctxAnim.strokeStyle='#6c7a91'; ctxAnim.stroke();
+        ctxAnim.fillStyle='#3b82f6'; ctxAnim.fillRect(massX-17,baseY-17,34,34);
+        ctxAnim.fillStyle='white'; ctxAnim.fillText('m',massX-5,baseY+5);
+        if(sim.F0>0.1){
+            ctxAnim.beginPath(); let arrowX=massX+20;
+            ctxAnim.moveTo(arrowX,baseY); ctxAnim.lineTo(arrowX+15,baseY);
+            ctxAnim.moveTo(arrowX+10,baseY-4); ctxAnim.lineTo(arrowX+15,baseY); ctxAnim.lineTo(arrowX+10,baseY+4);
+            ctxAnim.fill(); ctxAnim.fillText('F(t)',arrowX+5,baseY-5);
+        }
+        if(sim.dof===2){ let mass2X=massX+60; ctxAnim.fillStyle='#f97316'; ctxAnim.fillRect(mass2X-17,baseY-17,34,34); ctxAnim.fillStyle='white'; ctxAnim.fillText('m2',mass2X-5,baseY+5); }
+    }
+    function drawAll() { drawTimeDomain(); drawPhase(); drawAnimation(); }
+
+    function animate(now){
+        let dt = Math.min(0.018, (now-lastTimestamp)/1000);
+        if(dt>0.008){ for(let i=0;i<2;i++) sim.step(dt/2); sim.recordHistory(); drawAll(); lastTimestamp=now; }
+        requestAnimationFrame(animate);
+    }
+
+    async function runFrequencySweep(){
+        if(autoSweeping) return; autoSweeping=true;
+        let origF0=sim.F0, origOmega=sim.omega_f; sim.F0=5.0;
+        let freqs=[], amps=[];
+        for(let w=1; w<=30; w+=0.5){
+            sim.omega_f=w; sim.reset();
+            for(let i=0;i<700;i++) sim.step(0.012);
+            let vals=[];
+            sim.histX1.forEach(v=>vals.push(v));
+            let amp=(Math.max(...vals)-Math.min(...vals))/2;
+            freqs.push(w); amps.push(amp);
+            document.getElementById('sweepStatus').innerHTML=`Sweep: ${w.toFixed(1)} rad/s ...`;
+            await new Promise(r=>setTimeout(r,8));
+        }
+        sim.F0=origF0; sim.omega_f=origOmega; sim.reset(); autoSweeping=false;
+        document.getElementById('sweepStatus').innerHTML='Sweep complete.';
+        if(frfCanvas){
+            let w=frfCanvas.width, h=frfCanvas.height;
+            ctxFRF.clearRect(0,0,w,h);
+            let maxA=Math.max(...amps,0.1);
+            let tx=f=>(f-1)/29*w, ty=a=>h-(a/maxA)*h;
+            ctxFRF.beginPath();
+            for(let i=0;i<freqs.length;i++) i===0?ctxFRF.moveTo(tx(freqs[i]),ty(amps[i])):ctxFRF.lineTo(tx(freqs[i]),ty(amps[i]));
+            ctxFRF.stroke();
+        }
+        if(sim.dof===2 && sim.eigenFreqs) document.getElementById('sweepStatus').innerHTML+=` | Predicted modes: ${sim.eigenFreqs[0].toFixed(2)} , ${sim.eigenFreqs[1].toFixed(2)} rad/s`;
+    }
+
+    function runDecayTest(){
+        let backupF0=sim.F0; sim.F0=0; sim.pluck(); let peaks=[];
+        for(let i=0;i<2000;i++){ sim.step(0.012);
+            let vHist=[];
+            sim.histV1.forEach(v=>vHist.push(v));
+            if(vHist.length>2 && vHist[vHist.length-1]<0 && vHist[vHist.length-2]>=0){
+                let p=Math.abs(sim.state[0]); if(p>0.01) peaks.push(p);
+                if(peaks.length>=4) break;
+            }
+        }
+        sim.F0=backupF0; sim.reset();
+        if(peaks.length>=2){ let delta=Math.log(peaks[0]/peaks[1]), zeta=delta/Math.sqrt(4*Math.PI*Math.PI+delta*delta);
+            document.getElementById('decayResult').innerHTML=`Log decrement δ = ${delta.toFixed(3)}<br>Damping ratio ζ = ${zeta.toFixed(4)}<br>Energy loss/cycle = ${(delta*100).toFixed(1)}%`;
+        } else document.getElementById('decayResult').innerHTML='Not enough peaks. Reduce damping or friction.';
+        let tArr=[], xArr=[];
+        sim.histT.forEach(v=>tArr.push(v)); sim.histX1.forEach(v=>xArr.push(v));
+        if(decayCanvas && tArr.length){
+            let w=decayCanvas.width, h=decayCanvas.height, ctx=decayCanvas.getContext('2d');
+            ctx.clearRect(0,0,w,h);
+            let tMin=tArr[0], tMax=tArr[tArr.length-1];
+            let maxAbs=Math.max(...xArr.map(Math.abs),0.05), scaleY=0.9/maxAbs;
+            let tx=t=>(t-tMin)/(tMax-tMin)*w, ty=val=>h/2-val*scaleY*(h/2);
+            ctx.beginPath();
+            for(let i=0;i<tArr.length;i++) i===0?ctx.moveTo(tx(tArr[i]), ty(xArr[i])):ctx.lineTo(tx(tArr[i]), ty(xArr[i]));
+            ctx.strokeStyle='#3b82f6'; ctx.stroke();
+        }
+    }
+
+    function exportFullCSV(){
+        let t=[], x1=[], v1=[], x2=[], v2=[];
+        sim.histT.forEach(v=>t.push(v)); sim.histX1.forEach(v=>x1.push(v));
+        sim.histV1.forEach(v=>v1.push(v)); sim.histX2.forEach(v=>x2.push(v)); sim.histV2.forEach(v=>v2.push(v));
+        let csv="Time(s),x1(m),v1(m/s),x2(m),v2(m/s)\n";
+        for(let i=0;i<t.length;i++) csv+=`${t[i].toFixed(5)},${x1[i].toFixed(6)},${v1[i].toFixed(6)},${x2[i].toFixed(6)},${v2[i].toFixed(6)}\n`;
+        let a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="vibration_fullstate.csv"; a.click();
+    }
+
+    function solveRayleigh(){
+        let type=document.getElementById('rayType').value;
+        let rayMass=document.getElementById('rayMass'), rayStiff=document.getElementById('rayStiff');
+        let rayLen=document.getElementById('rayLen'), rayEmod=document.getElementById('rayEmod'), rayIinert=document.getElementById('rayIinert'), rayMuVal=document.getElementById('rayMuVal');
+        if(type==='springMass'){
+            let wn=Math.sqrt(parseFloat(rayMass.value)/parseFloat(rayStiff.value));
+            document.getElementById('rayleighResult').innerHTML=`ωₙ = ${wn.toFixed(3)} rad/s<br>fₙ = ${(wn/(2*Math.PI)).toFixed(3)} Hz`;
+        } else if(type==='cantilever'){
+            let L=parseFloat(rayLen.value), E=parseFloat(rayEmod.value)*1e9, I=parseFloat(rayIinert.value)*1e-6, mu=parseFloat(rayMuVal.value);
+            let beta=Math.PI/(2*L), num=E*I*Math.pow(beta,4)*(L/2), den=mu*L*(1.5-4/Math.PI), wn=Math.sqrt(num/den);
+            document.getElementById('rayleighResult').innerHTML=`ωₙ ≈ ${wn.toFixed(2)} rad/s<br>fₙ ≈ ${(wn/(2*Math.PI)).toFixed(2)} Hz`;
+        } else {
+            let L=parseFloat(rayLen.value), E=parseFloat(rayEmod.value)*1e9, I=parseFloat(rayIinert.value)*1e-6, mu=parseFloat(rayMuVal.value);
+            let wn=Math.pow(Math.PI/L,2)*Math.sqrt(E*I/mu);
+            document.getElementById('rayleighResult').innerHTML=`ωₙ = ${wn.toFixed(2)} rad/s<br>fₙ = ${(wn/(2*Math.PI)).toFixed(2)} Hz`;
+        }
+        let msCanvas=document.getElementById('modeShapeCanvas'), ctx=msCanvas.getContext('2d'), w=msCanvas.width, h=msCanvas.height;
+        ctx.clearRect(0,0,w,h);
+        if(type!=='springMass'){
+            let beamType=type;
+            ctx.beginPath(); ctx.moveTo(20,h-20);
+            for(let i=0;i<=100;i++){ let xl=20+(i/100)*(w-40), xi=i/100, y=(beamType==='cantilever')?1-Math.cos(Math.PI*xi/2):Math.sin(Math.PI*xi); let yp=h-20-y*(h-40); ctx.lineTo(xl,yp); }
+            ctx.strokeStyle='#3b82f6'; ctx.stroke();
+        }
+    }
+
+    function bindEvents(){
+        document.querySelector('input[value="1"]').onchange=()=>{ sim.dof=1; document.getElementById('params1DOF').style.display='block'; document.getElementById('params2DOF').style.display='none'; readParamsFromUI(); sim.reset(); drawAll(); };
+        document.querySelector('input[value="2"]').onchange=()=>{ sim.dof=2; document.getElementById('params1DOF').style.display='none'; document.getElementById('params2DOF').style.display='block'; readParamsFromUI(); sim.reset(); drawAll(); };
+        ['m1','k1','c1','eta1','mu1','m1b','m2b','k1b','k2b','c1b','c2b','mu2','F0','wf'].forEach(id=>document.getElementById(id)?.addEventListener('input',()=>{ readParamsFromUI(); sim.reset(); drawAll(); }));
+        document.getElementById('pluckBtn').onclick=()=>{ sim.pluck(); drawAll(); };
+        document.getElementById('resetBtn').onclick=()=>{ sim.reset(); drawAll(); };
+        document.getElementById('runSweepBtn').onclick=runFrequencySweep;
+        document.getElementById('decayTestBtn').onclick=runDecayTest;
+        document.getElementById('exportCSV').onclick=exportFullCSV;
+        document.getElementById('solveRayleighBtn').onclick=solveRayleigh;
+        document.getElementById('rayType').onchange=()=>{ let isSpring=document.getElementById('rayType').value==='springMass'; document.getElementById('raySpringDiv').style.display=isSpring?'block':'none'; document.getElementById('rayBeamDiv').style.display=isSpring?'none':'block'; solveRayleigh(); };
+        document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>{ let id=btn.dataset.tab; document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); if(id==='tab2') runFrequencySweep(); if(id==='tab4') solveRayleigh(); drawAll(); }));
+        ['rayMass','rayStiff','rayLen','rayEmod','rayIinert','rayMuVal'].forEach(id=>document.getElementById(id)?.addEventListener('input',()=>{ let map={rayMass:'M',rayStiff:'K',rayLen:'L',rayEmod:'E',rayIinert:'I',rayMuVal:'Mu'}; document.getElementById(`ray${map[id]}`).innerText=document.getElementById(id).value; solveRayleigh(); }));
+        let fm=document.getElementById('floatingMButton'), tt=document.getElementById('mTooltip'), tid; fm.onclick=()=>{ tt.classList.add('show'); clearTimeout(tid); tid=setTimeout(()=>tt.classList.remove('show'),2600); };
+        window.addEventListener('resize',()=>{
+            [timeCanvas,animCanvas,phaseCanvas,decayCanvas,frfCanvas].forEach(c=>{ if(c){ c.width=c.clientWidth; c.height=c.clientHeight; }});
+            drawAll();
+        });
+    }
+
+    function init(){
+        timeCanvas=document.getElementById('timeCanvas'); animCanvas=document.getElementById('animCanvas');
+        phaseCanvas=document.getElementById('phaseCanvas'); decayCanvas=document.getElementById('decayCanvas'); frfCanvas=document.getElementById('frfCanvas');
+        ctxTime=timeCanvas.getContext('2d'); ctxAnim=animCanvas.getContext('2d');
+        ctxPhase=phaseCanvas.getContext('2d'); ctxDecay=decayCanvas.getContext('2d'); ctxFRF=frfCanvas.getContext('2d');
+        [timeCanvas,animCanvas,phaseCanvas,decayCanvas,frfCanvas].forEach(c=>{ c.width=c.clientWidth; c.height=c.clientHeight; });
+        bindEvents(); readParamsFromUI(); sim.pluck(); lastTimestamp=performance.now(); requestAnimationFrame(animate); solveRayleigh();
+    }
+    window.addEventListener('DOMContentLoaded',()=>{ setTimeout(()=>{ let s=document.getElementById('splashScreen'); if(s){ s.style.opacity='0'; setTimeout(()=>{ s.style.display='none'; document.body.classList.remove('splash-active'); },700); } },2600); document.body.classList.add('splash-active'); init(); });
+</script>
+</body>
+</html>
